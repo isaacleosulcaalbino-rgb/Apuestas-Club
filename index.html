@@ -20,7 +20,7 @@
         <h1 class="text-3xl font-extrabold text-emerald-400 tracking-wider uppercase">
             Apuestas Club
         </h1>
-        <p class="text-slate-400 text-sm mt-1">Gestor de apuestas entre amigos</p>
+        <p class="text-slate-400 text-sm mt-1">Gestor de apuestas entre amigos en tiempo real ⚡</p>
         
         <!-- Indicador de modo -->
         <span id="mode-badge" class="hidden absolute top-4 right-4 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs px-2.5 py-1 rounded-full font-semibold">
@@ -51,11 +51,11 @@
 
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-400 mb-1">MARCADOR ACTUAL</label>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">MARCADOR INICIAL</label>
                         <input 
                             type="text" 
                             id="bet-score" 
-                            placeholder="Ej. 0 - 1" 
+                            placeholder="Ej. 0 - 0" 
                             required 
                             class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                         />
@@ -120,96 +120,67 @@
             </h2>
 
             <div id="bets-list" class="grid gap-4 sm:grid-cols-2">
-                <!-- Se llena dinámicamente -->
+                <p class="text-slate-400 text-xs italic sm:col-span-2">Cargando partidos en tiempo real...</p>
             </div>
         </section>
 
     </main>
 
-    <!-- JavaScript -->
-    <script>
-        // Forzar versión 4 para limpiar datos desactualizados
-        try {
-            const version = localStorage.getItem('ac_version');
-            if (version !== 'v4') {
-                localStorage.clear();
-                localStorage.setItem('ac_version', 'v4');
-            }
-        } catch(e) {}
+    <!-- Firebase JS SDK (Versión 10) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue, set, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+        // Configuración oficial de tu proyecto
+        const firebaseConfig = {
+            apiKey: "AIzaSyDjSo1qRU_pc-iijyEIJxuN2LtFmLZCoo0",
+            authDomain: "apuestas-club-6e3e8.firebaseapp.com",
+            databaseURL: "https://apuestas-club-6e3e8-default-rtdb.firebaseio.com",
+            projectId: "apuestas-club-6e3e8",
+            storageBucket: "apuestas-club-6e3e8.firebasestorage.app",
+            messagingSenderId: "698889439082",
+            appId: "1:698889439082:web:344bf002888db64f99c713",
+            measurementId: "G-REZWL297M7"
+        };
+
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Detectar modo jugador por la URL
         const urlParams = new URLSearchParams(window.location.search);
         const isPlayerMode = urlParams.get('mode') === 'jugador';
 
         if (isPlayerMode) {
             const adminSection = document.getElementById('admin-create-bet-section');
-            if (adminSection) {
-                adminSection.style.display = 'none';
-            }
+            if (adminSection) adminSection.style.display = 'none';
             const badge = document.getElementById('mode-badge');
-            if (badge) {
-                badge.classList.remove('hidden');
-            }
+            if (badge) badge.classList.remove('hidden');
         }
 
         let players = ['Barcelona', 'Real Madrid'];
-        let defaultBets = [
-            {
-                id: 101,
-                description: 'Real Madrid vs Barcelona',
-                score: '0 - 1',
-                status: 'En Juego', // O 'Finalizado'
-                amount: 10,
-                participants: ['Barcelona', 'Real Madrid']
+        let currentBets = {};
+
+        // Escuchar jugadores en tiempo real
+        const playersRef = ref(db, 'players');
+        onValue(playersRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                players = Object.values(data);
+            } else {
+                set(playersRef, players);
             }
-        ];
+            renderParticipantOptions();
+        });
 
-        let bets = defaultBets;
+        // Escuchar apuestas/partidos en tiempo real
+        const betsRef = ref(db, 'bets');
+        onValue(betsRef, (snapshot) => {
+            currentBets = snapshot.val() || {};
+            renderBets();
+        });
 
-        try {
-            const savedBets = localStorage.getItem('ac_bets_v4');
-            if (savedBets) {
-                bets = JSON.parse(savedBets);
-            }
-            const savedPlayers = localStorage.getItem('ac_players_v4');
-            if (savedPlayers) {
-                players = JSON.parse(savedPlayers);
-            }
-        } catch (e) {}
-
-        function saveData() {
-            try {
-                localStorage.setItem('ac_players_v4', JSON.stringify(players));
-                localStorage.setItem('ac_bets_v4', JSON.stringify(bets));
-            } catch(e) {}
-        }
-
-        function updateScore(betId) {
-            const input = document.getElementById(`update-score-input-${betId}`);
-            if (!input) return;
-            const newScore = input.value.trim();
-            if (!newScore) return;
-
-            const bet = bets.find(b => b.id === betId);
-            if (bet) {
-                bet.score = newScore;
-                saveData();
-                renderBets();
-            }
-        }
-
-        function updateStatus(betId) {
-            const select = document.getElementById(`update-status-select-${betId}`);
-            if (!select) return;
-            const newStatus = select.value;
-
-            const bet = bets.find(b => b.id === betId);
-            if (bet) {
-                bet.status = newStatus;
-                saveData();
-                renderBets();
-            }
-        }
-
+        // Renderizar opciones de participantes
         function renderParticipantOptions() {
             const container = document.getElementById('bet-participants');
             if (!container) return;
@@ -231,25 +202,27 @@
             });
         }
 
+        // Renderizar partidos en la pantalla
         function renderBets() {
             const container = document.getElementById('bets-list');
             if (!container) return;
             container.innerHTML = '';
 
-            if (!bets || bets.length === 0) {
+            const betKeys = Object.keys(currentBets);
+
+            if (betKeys.length === 0) {
                 container.innerHTML = '<p class="text-slate-500 text-xs italic sm:col-span-2">No hay partidos o apuestas en curso en este momento.</p>';
                 return;
             }
 
-            bets.forEach(bet => {
+            betKeys.forEach(betId => {
+                const bet = currentBets[betId];
                 const totalPool = (bet.amount || 0) * (bet.participants ? bet.participants.length : 1);
                 const card = document.createElement('div');
                 card.className = 'bg-slate-900 border border-slate-700 p-4 rounded-xl flex flex-col justify-between gap-3';
 
                 let participantNames = (bet.participants || []).join(', ');
-                let winnerOptions = (bet.participants || []).map(p => `<option value="${p}">${p}</option>`).join('');
 
-                // Formato badge del estado (En Juego vs Finalizado)
                 const isFinished = (bet.status || 'En Juego') === 'Finalizado';
                 const statusBadge = isFinished
                     ? `<span class="text-[11px] text-red-400 font-bold bg-red-950/60 border border-red-800/50 px-2 py-0.5 rounded inline-block mt-1">🔴 Finalizado</span>`
@@ -264,13 +237,13 @@
                                 <div class="flex gap-2">
                                     <input 
                                         type="text" 
-                                        id="update-score-input-${bet.id}" 
+                                        id="input-score-${betId}" 
                                         placeholder="${bet.score}" 
                                         class="flex-1 bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none"
                                     />
                                     <button 
-                                        onclick="updateScore(${bet.id})" 
-                                        class="bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs px-2.5 py-1 rounded transition"
+                                        data-id="${betId}"
+                                        class="btn-update-score bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs px-2.5 py-1 rounded transition"
                                     >
                                         Cambiar
                                     </button>
@@ -280,13 +253,13 @@
                             <div>
                                 <label class="text-xs font-semibold text-slate-400 block mb-1">Estado del Partido:</label>
                                 <div class="flex gap-2">
-                                    <select id="update-status-select-${bet.id}" class="flex-1 bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none">
+                                    <select id="select-status-${betId}" class="flex-1 bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none">
                                         <option value="En Juego" ${!isFinished ? 'selected' : ''}>En Juego</option>
                                         <option value="Finalizado" ${isFinished ? 'selected' : ''}>Finalizado</option>
                                     </select>
                                     <button 
-                                        onclick="updateStatus(${bet.id})" 
-                                        class="bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs px-2.5 py-1 rounded transition"
+                                        data-id="${betId}"
+                                        class="btn-update-status bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs px-2.5 py-1 rounded transition"
                                     >
                                         Guardar
                                     </button>
@@ -294,18 +267,12 @@
                             </div>
 
                             <div class="mt-1">
-                                <label class="text-xs font-semibold text-slate-400 block mb-1">Declarar Ganador / Eliminar:</label>
-                                <div class="flex gap-2">
-                                    <select id="winner-select-${bet.id}" class="flex-1 bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none">
-                                        ${winnerOptions}
-                                    </select>
-                                    <button 
-                                        onclick="resolveBet(${bet.id})" 
-                                        class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-2.5 py-1 rounded transition"
-                                    >
-                                        Finalizar
-                                    </button>
-                                </div>
+                                <button 
+                                    data-id="${betId}"
+                                    class="btn-delete-bet w-full bg-red-600 hover:bg-red-500 text-white font-medium text-xs py-1 rounded transition"
+                                >
+                                    Eliminar Apuesta
+                                </button>
                             </div>
                         </div>
                     `;
@@ -335,8 +302,37 @@
                 `;
                 container.appendChild(card);
             });
+
+            // Asignar eventos a botones de administración
+            document.querySelectorAll('.btn-update-score').forEach(btn => {
+                btn.onclick = () => {
+                    const id = btn.getAttribute('data-id');
+                    const newScore = document.getElementById(`input-score-${id}`).value.trim();
+                    if (newScore) {
+                        update(ref(db, `bets/${id}`), { score: newScore });
+                    }
+                };
+            });
+
+            document.querySelectorAll('.btn-update-status').forEach(btn => {
+                btn.onclick = () => {
+                    const id = btn.getAttribute('data-id');
+                    const newStatus = document.getElementById(`select-status-${id}`).value;
+                    update(ref(db, `bets/${id}`), { status: newStatus });
+                };
+            });
+
+            document.querySelectorAll('.btn-delete-bet').forEach(btn => {
+                btn.onclick = () => {
+                    const id = btn.getAttribute('data-id');
+                    if (confirm('¿Deseas eliminar esta apuesta?')) {
+                        remove(ref(db, `bets/${id}`));
+                    }
+                };
+            });
         }
 
+        // Agregar jugador
         const addPlayerBtn = document.getElementById('add-player-btn');
         if (addPlayerBtn) {
             addPlayerBtn.addEventListener('click', () => {
@@ -344,13 +340,13 @@
                 const name = input.value.trim();
                 if (name && !players.includes(name)) {
                     players.push(name);
+                    set(ref(db, 'players'), players);
                     input.value = '';
-                    saveData();
-                    renderParticipantOptions();
                 }
             });
         }
 
+        // Crear nuevo partido
         const betForm = document.getElementById('bet-form');
         if (betForm) {
             betForm.addEventListener('submit', (e) => {
@@ -368,8 +364,8 @@
                     return;
                 }
 
-                bets.push({
-                    id: Date.now(),
+                const newBetId = Date.now();
+                set(ref(db, `bets/${newBetId}`), {
                     description: desc,
                     score: score,
                     status: status,
@@ -380,19 +376,8 @@
                 document.getElementById('bet-description').value = '';
                 document.getElementById('bet-score').value = '';
                 document.getElementById('bet-amount').value = '';
-                saveData();
-                renderBets();
             });
         }
-
-        function resolveBet(betId) {
-            bets = bets.filter(b => b.id !== betId);
-            saveData();
-            renderBets();
-        }
-
-        renderParticipantOptions();
-        renderBets();
     </script>
 </body>
 </html>
