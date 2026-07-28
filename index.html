@@ -250,7 +250,7 @@
                 let winnerOptions = (bet.participants || []).map(p => `<option value="${p}">${p}</option>`).join('');
 
                 // Formato badge del estado (En Juego vs Finalizado)
-                const isFinished = (bet.status || 'En Juego') === 'Finalizado';
+                const isFinished = (bet.status || 'Finalizado') === 'Finalizado';
                 const statusBadge = isFinished
                     ? `<span class="text-[11px] text-red-400 font-bold bg-red-950/60 border border-red-800/50 px-2 py-0.5 rounded inline-block mt-1">🔴 Finalizado</span>`
                     : `<span class="text-[11px] text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800/50 px-2 py-0.5 rounded inline-block mt-1">⏱️ En Juego</span>`;
