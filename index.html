@@ -31,7 +31,7 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-4xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
 
-        <!-- Sección: Crear Nueva Apuesta (Solo visible para ADMIN) -->
+        <!-- Sección: Crear Nueva Apuesta (SOLO ADMIN) -->
         <section id="admin-create-bet-section" class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-5 shadow-lg flex flex-col gap-4 max-w-xl mx-auto w-full">
             <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
                 🎯 Crear Apuesta
@@ -93,7 +93,7 @@
             </form>
         </section>
 
-        <!-- Sección: Marcadores de los Partidos (ÚNICA SECCIÓN VISIBLE PARA JUGADORES) -->
+        <!-- Sección: Marcadores de los Partidos (VISIBLE PARA TODOS) -->
         <section id="bets-section" class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-5 shadow-lg w-full flex flex-col gap-4">
             <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
                 ⚽ Marcadores de los Partidos
@@ -108,14 +108,19 @@
 
     <!-- JavaScript -->
     <script>
-        // Comprobar si es Modo Jugador desde la URL
+        // Ocultar Crear Apuesta INMEDIATAMENTE si está en modo jugador
         const urlParams = new URLSearchParams(window.location.search);
         const isPlayerMode = urlParams.get('mode') === 'jugador';
 
-        // Ocultar sección de creación si es jugador
         if (isPlayerMode) {
-            document.getElementById('admin-create-bet-section').classList.add('hidden');
-            document.getElementById('mode-badge').classList.remove('hidden');
+            const adminSection = document.getElementById('admin-create-bet-section');
+            if (adminSection) {
+                adminSection.style.display = 'none';
+            }
+            const badge = document.getElementById('mode-badge');
+            if (badge) {
+                badge.classList.remove('hidden');
+            }
         }
 
         // Estado Global
@@ -127,7 +132,6 @@
             localStorage.setItem('ac_bets', JSON.stringify(bets));
         }
 
-        // Renderizar opciones de participantes
         function renderParticipantOptions() {
             const container = document.getElementById('bet-participants');
             if (!container) return;
@@ -138,7 +142,7 @@
                 return;
             }
 
-            players.forEach((player, index) => {
+            players.forEach((player) => {
                 const label = document.createElement('label');
                 label.className = 'flex items-center gap-2 text-xs text-slate-300 cursor-pointer hover:text-white';
                 label.innerHTML = `
@@ -149,9 +153,9 @@
             });
         }
 
-        // Renderizar Marcadores de los Partidos
         function renderBets() {
             const container = document.getElementById('bets-list');
+            if (!container) return;
             container.innerHTML = '';
 
             if (bets.length === 0) {
@@ -165,7 +169,6 @@
                 card.className = 'bg-slate-900 border border-slate-700 p-4 rounded-xl flex flex-col justify-between gap-3';
 
                 let participantNames = bet.participants.join(', ');
-
                 let winnerOptions = bet.participants.map(p => `<option value="${p}">${p}</option>`).join('');
 
                 card.innerHTML = `
@@ -199,7 +202,6 @@
             });
         }
 
-        // Agregar jugador rápido
         const addPlayerBtn = document.getElementById('add-player-btn');
         if (addPlayerBtn) {
             addPlayerBtn.addEventListener('click', () => {
@@ -214,7 +216,6 @@
             });
         }
 
-        // Evento para Crear Apuesta
         const betForm = document.getElementById('bet-form');
         if (betForm) {
             betForm.addEventListener('submit', (e) => {
@@ -244,14 +245,12 @@
             });
         }
 
-        // Finalizar Partido / Apuesta
         function resolveBet(betId) {
             bets = bets.filter(b => b.id !== betId);
             saveData();
             renderBets();
         }
 
-        // Inicializar
         renderParticipantOptions();
         renderBets();
     </script>
