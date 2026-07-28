@@ -119,15 +119,6 @@
 
     <!-- JavaScript -->
     <script>
-        // Forzar limpieza de localStorage antiguo si hay choque de versiones
-        try {
-            const version = localStorage.getItem('ac_version');
-            if (version !== 'v2') {
-                localStorage.clear();
-                localStorage.setItem('ac_version', 'v2');
-            }
-        } catch(e) { console.log(e); }
-
         const urlParams = new URLSearchParams(window.location.search);
         const isPlayerMode = urlParams.get('mode') === 'jugador';
 
@@ -147,7 +138,7 @@
             {
                 id: 101,
                 description: 'Real Madrid vs Barcelona',
-                score: '0 - 0',
+                score: '2 - 1',
                 amount: 10,
                 participants: ['Barcelona', 'Real Madrid']
             }
@@ -164,15 +155,27 @@
             if (savedPlayers) {
                 players = JSON.parse(savedPlayers);
             }
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) {}
 
         function saveData() {
             try {
                 localStorage.setItem('ac_players_v2', JSON.stringify(players));
                 localStorage.setItem('ac_bets_v2', JSON.stringify(bets));
             } catch(e) {}
+        }
+
+        function updateScore(betId) {
+            const input = document.getElementById(`update-score-input-${betId}`);
+            if (!input) return;
+            const newScore = input.value.trim();
+            if (!newScore) return;
+
+            const bet = bets.find(b => b.id === betId);
+            if (bet) {
+                bet.score = newScore;
+                saveData();
+                renderBets();
+            }
         }
 
         function renderParticipantOptions() {
@@ -218,17 +221,37 @@
                 if (!isPlayerMode) {
                     adminControlsHtml = `
                         <div class="border-t border-slate-800 pt-3 flex flex-col gap-2">
-                            <label class="text-xs font-semibold text-slate-400">Declarar Ganador / Marcador Final:</label>
-                            <div class="flex gap-2">
-                                <select id="winner-select-${bet.id}" class="flex-1 bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded px-2 py-1.5 focus:outline-none">
-                                    ${winnerOptions}
-                                </select>
-                                <button 
-                                    onclick="resolveBet(${bet.id})" 
-                                    class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-3 py-1.5 rounded transition"
-                                >
-                                    Finalizar
-                                </button>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-400 block mb-1">Actualizar Marcador:</label>
+                                <div class="flex gap-2">
+                                    <input 
+                                        type="text" 
+                                        id="update-score-input-${bet.id}" 
+                                        placeholder="${bet.score}" 
+                                        class="flex-1 bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none"
+                                    />
+                                    <button 
+                                        onclick="updateScore(${bet.id})" 
+                                        class="bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs px-2.5 py-1 rounded transition"
+                                    >
+                                        Cambiar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="mt-1">
+                                <label class="text-xs font-semibold text-slate-400 block mb-1">Declarar Ganador / Marcador Final:</label>
+                                <div class="flex gap-2">
+                                    <select id="winner-select-${bet.id}" class="flex-1 bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none">
+                                        ${winnerOptions}
+                                    </select>
+                                    <button 
+                                        onclick="resolveBet(${bet.id})" 
+                                        class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-2.5 py-1 rounded transition"
+                                    >
+                                        Finalizar
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     `;
