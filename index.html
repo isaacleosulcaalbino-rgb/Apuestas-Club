@@ -49,15 +49,24 @@
                     />
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 mb-1">MARCADOR ACTUAL</label>
-                    <input 
-                        type="text" 
-                        id="bet-score" 
-                        placeholder="Ej. 2 - 1" 
-                        required 
-                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                    />
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">MARCADOR ACTUAL</label>
+                        <input 
+                            type="text" 
+                            id="bet-score" 
+                            placeholder="Ej. 0 - 1" 
+                            required 
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">ESTADO INICIAL</label>
+                        <select id="bet-status-initial" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                            <option value="En Juego">En Juego</option>
+                            <option value="Finalizado">Finalizado</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div>
@@ -119,6 +128,15 @@
 
     <!-- JavaScript -->
     <script>
+        // Forzar versión 4 para limpiar datos desactualizados
+        try {
+            const version = localStorage.getItem('ac_version');
+            if (version !== 'v4') {
+                localStorage.clear();
+                localStorage.setItem('ac_version', 'v4');
+            }
+        } catch(e) {}
+
         const urlParams = new URLSearchParams(window.location.search);
         const isPlayerMode = urlParams.get('mode') === 'jugador';
 
@@ -133,12 +151,13 @@
             }
         }
 
-        let players = ['Real Madrid', 'Barcelona'];
+        let players = ['Barcelona', 'Real Madrid'];
         let defaultBets = [
             {
                 id: 101,
                 description: 'Real Madrid vs Barcelona',
                 score: '0 - 1',
+                status: 'En Juego', // O 'Finalizado'
                 amount: 10,
                 participants: ['Barcelona', 'Real Madrid']
             }
@@ -147,11 +166,11 @@
         let bets = defaultBets;
 
         try {
-            const savedBets = localStorage.getItem('ac_bets_v2');
+            const savedBets = localStorage.getItem('ac_bets_v4');
             if (savedBets) {
                 bets = JSON.parse(savedBets);
             }
-            const savedPlayers = localStorage.getItem('ac_players_v2');
+            const savedPlayers = localStorage.getItem('ac_players_v4');
             if (savedPlayers) {
                 players = JSON.parse(savedPlayers);
             }
@@ -159,8 +178,8 @@
 
         function saveData() {
             try {
-                localStorage.setItem('ac_players_v2', JSON.stringify(players));
-                localStorage.setItem('ac_bets_v2', JSON.stringify(bets));
+                localStorage.setItem('ac_players_v4', JSON.stringify(players));
+                localStorage.setItem('ac_bets_v4', JSON.stringify(bets));
             } catch(e) {}
         }
 
@@ -173,6 +192,19 @@
             const bet = bets.find(b => b.id === betId);
             if (bet) {
                 bet.score = newScore;
+                saveData();
+                renderBets();
+            }
+        }
+
+        function updateStatus(betId) {
+            const select = document.getElementById(`update-status-select-${betId}`);
+            if (!select) return;
+            const newStatus = select.value;
+
+            const bet = bets.find(b => b.id === betId);
+            if (bet) {
+                bet.status = newStatus;
                 saveData();
                 renderBets();
             }
@@ -217,6 +249,12 @@
                 let participantNames = (bet.participants || []).join(', ');
                 let winnerOptions = (bet.participants || []).map(p => `<option value="${p}">${p}</option>`).join('');
 
+                // Formato badge del estado (En Juego vs Finalizado)
+                const isFinished = (bet.status || 'En Juego') === 'Finalizado';
+                const statusBadge = isFinished
+                    ? `<span class="text-[11px] text-red-400 font-bold bg-red-950/60 border border-red-800/50 px-2 py-0.5 rounded inline-block mt-1">🔴 Finalizado</span>`
+                    : `<span class="text-[11px] text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800/50 px-2 py-0.5 rounded inline-block mt-1">⏱️ En Juego</span>`;
+
                 let adminControlsHtml = '';
                 if (!isPlayerMode) {
                     adminControlsHtml = `
@@ -239,8 +277,24 @@
                                 </div>
                             </div>
 
+                            <div>
+                                <label class="text-xs font-semibold text-slate-400 block mb-1">Estado del Partido:</label>
+                                <div class="flex gap-2">
+                                    <select id="update-status-select-${bet.id}" class="flex-1 bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none">
+                                        <option value="En Juego" ${!isFinished ? 'selected' : ''}>En Juego</option>
+                                        <option value="Finalizado" ${isFinished ? 'selected' : ''}>Finalizado</option>
+                                    </select>
+                                    <button 
+                                        onclick="updateStatus(${bet.id})" 
+                                        class="bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs px-2.5 py-1 rounded transition"
+                                    >
+                                        Guardar
+                                    </button>
+                                </div>
+                            </div>
+
                             <div class="mt-1">
-                                <label class="text-xs font-semibold text-slate-400 block mb-1">Declarar Ganador / Marcador Final:</label>
+                                <label class="text-xs font-semibold text-slate-400 block mb-1">Declarar Ganador / Eliminar:</label>
                                 <div class="flex gap-2">
                                     <select id="winner-select-${bet.id}" class="flex-1 bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none">
                                         ${winnerOptions}
@@ -260,7 +314,10 @@
                 card.innerHTML = `
                     <div>
                         <div class="flex justify-between items-start gap-2 mb-2">
-                            <h3 class="font-bold text-slate-100 text-base leading-tight">${bet.description || 'Partido'}</h3>
+                            <div>
+                                <h3 class="font-bold text-slate-100 text-base leading-tight">${bet.description || 'Partido'}</h3>
+                                ${statusBadge}
+                            </div>
                             <span class="text-xs font-bold text-amber-400 bg-amber-950/40 border border-amber-800/40 px-2 py-1 rounded">
                                 Pozo: ${totalPool} 🪙
                             </span>
@@ -300,6 +357,7 @@
                 e.preventDefault();
                 const desc = document.getElementById('bet-description').value.trim();
                 const score = document.getElementById('bet-score').value.trim();
+                const status = document.getElementById('bet-status-initial').value;
                 const amount = parseInt(document.getElementById('bet-amount').value);
                 
                 const selectedCheckboxes = document.querySelectorAll('.participant-checkbox:checked');
@@ -314,6 +372,7 @@
                     id: Date.now(),
                     description: desc,
                     score: score,
+                    status: status,
                     amount: amount,
                     participants: selectedNames
                 });
