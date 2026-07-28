@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Apuestas Club</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -14,17 +15,302 @@
 </head>
 <body class="min-h-screen flex flex-col font-sans">
 
+    <!-- Header -->
     <header class="bg-slate-900 border-b border-slate-800 py-6 px-4 text-center relative">
         <h1 class="text-3xl font-extrabold text-emerald-400 tracking-wider uppercase">
             Apuestas Club
         </h1>
         <p class="text-slate-400 text-sm mt-1">Gestor de apuestas entre amigos</p>
         
+        <!-- Indicador de modo -->
         <span id="mode-badge" class="hidden absolute top-4 right-4 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs px-2.5 py-1 rounded-full font-semibold">
             Modo Jugador
         </span>
     </header>
 
+    <!-- Main Content -->
     <main class="flex-grow max-w-4xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
 
-        <section id="admin-create-bet-section" class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-5 shadow-lg flex flex-col gap-4 max-w-xl mx-auto w-full
+        <!-- Sección: Crear Nueva Apuesta (SOLO ADMIN) -->
+        <section id="admin-create-bet-section" class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-5 shadow-lg flex flex-col gap-4 max-w-xl mx-auto w-full">
+            <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                🎯 Crear Apuesta / Partido
+            </h2>
+
+            <form id="bet-form" class="flex flex-col gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">PARTIDO / DESCRIPCIÓN</label>
+                    <input 
+                        type="text" 
+                        id="bet-description" 
+                        placeholder="Ej. Real Madrid vs Barcelona" 
+                        required 
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">MARCADOR ACTUAL</label>
+                    <input 
+                        type="text" 
+                        id="bet-score" 
+                        placeholder="Ej. 2 - 1" 
+                        required 
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">MONTO EN FICHAS (Por participante)</label>
+                    <input 
+                        type="number" 
+                        id="bet-amount" 
+                        min="1" 
+                        placeholder="10" 
+                        required 
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">AGREGAR PARTICIPANTE</label>
+                    <div class="flex gap-2 mb-2">
+                        <input 
+                            type="text" 
+                            id="new-player-name" 
+                            placeholder="Nombre del jugador" 
+                            class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                        />
+                        <button 
+                            type="button" 
+                            id="add-player-btn"
+                            class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-2 rounded-lg text-sm transition"
+                        >
+                            + Añadir
+                        </button>
+                    </div>
+                    
+                    <div id="bet-participants" class="bg-slate-900 border border-slate-700 rounded-lg p-3 max-h-32 overflow-y-auto flex flex-col gap-2">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                </div>
+
+                <button 
+                    type="submit" 
+                    class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-sm mt-1 transition"
+                >
+                    Publicar Apuesta
+                </button>
+            </form>
+        </section>
+
+        <!-- Sección: Marcadores de los Partidos -->
+        <section id="bets-section" class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-5 shadow-lg w-full flex flex-col gap-4">
+            <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                ⚽ Marcadores de los Partidos
+            </h2>
+
+            <div id="bets-list" class="grid gap-4 sm:grid-cols-2">
+                <!-- Se llena dinámicamente -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- JavaScript -->
+    <script>
+        // Forzar limpieza de localStorage antiguo si hay choque de versiones
+        try {
+            const version = localStorage.getItem('ac_version');
+            if (version !== 'v2') {
+                localStorage.clear();
+                localStorage.setItem('ac_version', 'v2');
+            }
+        } catch(e) { console.log(e); }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const isPlayerMode = urlParams.get('mode') === 'jugador';
+
+        if (isPlayerMode) {
+            const adminSection = document.getElementById('admin-create-bet-section');
+            if (adminSection) {
+                adminSection.style.display = 'none';
+            }
+            const badge = document.getElementById('mode-badge');
+            if (badge) {
+                badge.classList.remove('hidden');
+            }
+        }
+
+        let players = ['Carlos', 'Sofía'];
+        let defaultBets = [
+            {
+                id: 101,
+                description: 'Real Madrid vs Barcelona',
+                score: '2 - 1',
+                amount: 10,
+                participants: ['Barcelona', 'Real Madrid']
+            }
+        ];
+
+        let bets = defaultBets;
+
+        try {
+            const savedBets = localStorage.getItem('ac_bets_v2');
+            if (savedBets) {
+                bets = JSON.parse(savedBets);
+            }
+            const savedPlayers = localStorage.getItem('ac_players_v2');
+            if (savedPlayers) {
+                players = JSON.parse(savedPlayers);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+
+        function saveData() {
+            try {
+                localStorage.setItem('ac_players_v2', JSON.stringify(players));
+                localStorage.setItem('ac_bets_v2', JSON.stringify(bets));
+            } catch(e) {}
+        }
+
+        function renderParticipantOptions() {
+            const container = document.getElementById('bet-participants');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (players.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 text-xs italic">Agrega nombres arriba para seleccionarlos.</p>';
+                return;
+            }
+
+            players.forEach((player) => {
+                const label = document.createElement('label');
+                label.className = 'flex items-center gap-2 text-xs text-slate-300 cursor-pointer hover:text-white';
+                label.innerHTML = `
+                    <input type="checkbox" value="${player}" class="participant-checkbox rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0">
+                    ${player}
+                `;
+                container.appendChild(label);
+            });
+        }
+
+        function renderBets() {
+            const container = document.getElementById('bets-list');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (!bets || bets.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 text-xs italic sm:col-span-2">No hay partidos o apuestas en curso en este momento.</p>';
+                return;
+            }
+
+            bets.forEach(bet => {
+                const totalPool = (bet.amount || 0) * (bet.participants ? bet.participants.length : 1);
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900 border border-slate-700 p-4 rounded-xl flex flex-col justify-between gap-3';
+
+                let participantNames = (bet.participants || []).join(', ');
+                let winnerOptions = (bet.participants || []).map(p => `<option value="${p}">${p}</option>`).join('');
+
+                let adminControlsHtml = '';
+                if (!isPlayerMode) {
+                    adminControlsHtml = `
+                        <div class="border-t border-slate-800 pt-3 flex flex-col gap-2">
+                            <label class="text-xs font-semibold text-slate-400">Declarar Ganador / Marcador Final:</label>
+                            <div class="flex gap-2">
+                                <select id="winner-select-${bet.id}" class="flex-1 bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded px-2 py-1.5 focus:outline-none">
+                                    ${winnerOptions}
+                                </select>
+                                <button 
+                                    onclick="resolveBet(${bet.id})" 
+                                    class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-3 py-1.5 rounded transition"
+                                >
+                                    Finalizar
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start gap-2 mb-2">
+                            <h3 class="font-bold text-slate-100 text-base leading-tight">${bet.description || 'Partido'}</h3>
+                            <span class="text-xs font-bold text-amber-400 bg-amber-950/40 border border-amber-800/40 px-2 py-1 rounded">
+                                Pozo: ${totalPool} 🪙
+                            </span>
+                        </div>
+
+                        <div class="bg-slate-950/60 p-2.5 rounded-lg my-2 text-center border border-slate-800">
+                            <p class="text-xs text-slate-400 uppercase font-bold tracking-wider">Marcador Actual</p>
+                            <p class="text-xl font-extrabold text-emerald-400 tracking-widest mt-0.5">${bet.score || '0 - 0'}</p>
+                        </div>
+
+                        <p class="text-xs text-slate-400"><strong>Apuesta:</strong> ${bet.amount || 0} 🪙 por persona</p>
+                        <p class="text-xs text-slate-400 mt-1"><strong>Participantes:</strong> ${participantNames}</p>
+                    </div>
+                    ${adminControlsHtml}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        const addPlayerBtn = document.getElementById('add-player-btn');
+        if (addPlayerBtn) {
+            addPlayerBtn.addEventListener('click', () => {
+                const input = document.getElementById('new-player-name');
+                const name = input.value.trim();
+                if (name && !players.includes(name)) {
+                    players.push(name);
+                    input.value = '';
+                    saveData();
+                    renderParticipantOptions();
+                }
+            });
+        }
+
+        const betForm = document.getElementById('bet-form');
+        if (betForm) {
+            betForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const desc = document.getElementById('bet-description').value.trim();
+                const score = document.getElementById('bet-score').value.trim();
+                const amount = parseInt(document.getElementById('bet-amount').value);
+                
+                const selectedCheckboxes = document.querySelectorAll('.participant-checkbox:checked');
+                const selectedNames = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+                if (selectedNames.length < 2) {
+                    alert('Selecciona al menos 2 participantes.');
+                    return;
+                }
+
+                bets.push({
+                    id: Date.now(),
+                    description: desc,
+                    score: score,
+                    amount: amount,
+                    participants: selectedNames
+                });
+
+                document.getElementById('bet-description').value = '';
+                document.getElementById('bet-score').value = '';
+                document.getElementById('bet-amount').value = '';
+                saveData();
+                renderBets();
+            });
+        }
+
+        function resolveBet(betId) {
+            bets = bets.filter(b => b.id !== betId);
+            saveData();
+            renderBets();
+        }
+
+        renderParticipantOptions();
+        renderBets();
+    </script>
+</body>
+</html>
